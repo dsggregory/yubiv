@@ -1,6 +1,7 @@
-# Yubikey Resources
+# Yubikey Validate OTP
+This package provides a library to validate a Yubi one-time password (OTP) token using either a local self-hosted environment, or using the standard Yubico API servers.
 
-## OTP (One Time Password)
+## Overview
 Terminology:
 * YubiKey - the hardware device itself
 * YubiKey Token - the string that the YubiKey writes when pressed
@@ -26,13 +27,32 @@ A Yubikey [OTP](https://developers.yubico.com/OTP/OTPs_Explained.html) is genera
 
 > Each YubiKey has two slots. The first slot is used to generate the passcode when the YubiKey is touched for between 0.3 and 1.5 seconds and released. The second slot is used if the button is touched between 2 and 5 seconds. When the YubiKey is shipped its first configuration slot is factory programmed for the "Works with YubiKey" YubiCloud OTP service and the second configuration slot is blank.
 
+## Usage
 ### Yubico Validation
-Out of the box, a Yubikey is able to be validated using the Yubico servers and their API.
+Out of the box, a Yubikey token may be validated using the Yubico servers and their API. You will need [Yubico API Credentials](https://support.yubico.com/hc/en-us/articles/360013717560-Obtaining-an-API-Key-for-YubiKey-Development) that you can acquire for free from Yubico. Store the API credentials safely and make them available to this library.
+
+A full example to validate a token from the Yubico servers may be found in the [example code](./example/validateFromYubico.go).
+
+A quick example follows:
+```go
+func validateOTP(otp string) bool {
+	// create a reusable API client 
+	y, _ := yubico.NewYubiClient(yubico.WithAPICreds(id, apikeyB64))
+	// read a OTP from a Yubi device press and attempt to validate it
+	resp, err := y.VerifyOTP(otp)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+```
 
 ### Self-Hosted Validation
-Validating One-Time-Passwords (OTP) requires knowledge of a map of Yubikey ID to Secret AES Key.
+Validating One-Time-Passwords (OTP) requires knowledge of a map of Yubikey ID to Secret AES Key. This solution is more involved than using Yubico because you will have to manage a Yubi device users database yourself.
 
-I used `Yubikey Manager` to configure the long press slot 2 so I could get the Secret AES key. Write these down when creating as you won't be able to get them later. Leave slot 1 alone (and validate to this service with a long press). Slot 1 is then still configured for the Yubi cloud server verification likely needed by apps you've already configured it for use (e.g. VPN client). 
+#### Yubi Slot Strategy
+In order to allow Yubico validation, plus self-hosted validation, the device must be configured to use both slots.
+
+Use the [Yubikey Manager](https://www.yubico.com/support/download/yubikey-manager/) to configure the long press slot #2 to get the Secret AES key. Write these down when creating as you won't be able to get them later. Leave slot 1 alone (and validate to this service with a long press). Slot 1 is then still configured for the Yubi cloud server verification likely needed by apps you've already configured it for use (e.g. VPN client). 
 
 Steps to perform this after downloading and running the Yubikey Manager are as follows:
 * Select Applications/OTP
@@ -42,7 +62,11 @@ Steps to perform this after downloading and running the Yubikey Manager are as f
 * __COPY__ down all values presented and store in a safe place
 * Complete the wizard
 
-You will then use the copied values when registering your Yubikey with cluster-terminal.
+You will then use the copied values when registering your self-hosted Yubikey with this package (__TODO__).
+
+#### Create a database user
+
+#### Validate a YubiKey Token
 
 ## References
 * https://duo.com/docs/yubikey

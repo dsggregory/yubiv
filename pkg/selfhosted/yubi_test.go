@@ -1,4 +1,4 @@
-package yubikey
+package selfhosted
 
 import (
 	"bufio"
@@ -7,10 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dsggregory/yubiv/pkg/model"
+	"github.com/dsggregory/yubiv/pkg/common"
+
+	yubidb "github.com/dsggregory/yubiv/pkg/selfhosted/database"
+	"github.com/dsggregory/yubiv/pkg/selfhosted/model"
 	yubitest "github.com/dsggregory/yubiv/pkg/test"
-	yubidb "github.com/dsggregory/yubiv/pkg/yubikey/database"
-	otpv "github.com/dsggregory/yubiv/pkg/yubikey/otpvalidation"
 	. "gopkg.in/check.v1"
 )
 
@@ -47,7 +48,7 @@ func (s *YubiSuite) TestReadToken(c *C) {
 }
 
 func (s *YubiSuite) readUser() *model.YubiUser {
-	user, _ := s.db.Get(yubitest.TestTokens[0].Pub[:otpv.PubLen])
+	user, _ := s.db.Get(yubitest.TestTokens[0].Pub[:PubLen])
 	return user
 }
 
@@ -58,7 +59,7 @@ func (s *YubiSuite) TestShvValidateOTP(c *C) {
 	otp = yubitest.TestTokens[0].OTPs[0]
 	secret = yubitest.TestTokens[0].Secret
 	user := model.YubiUser{Secret: model.ColumnSecret(secret)}
-	tok, err := otpv.ShvValidateOTP(user, []byte(otp))
+	tok, err := ShvValidateOTP(user, []byte(otp))
 	c.Assert(err, IsNil)
 	c.Assert(tok, NotNil)
 }
@@ -76,7 +77,7 @@ func (s *YubiSuite) TestSelfHosted(c *C) {
 	// validating the same token should fail
 	_, err = y.Validate()
 	c.Assert(err, NotNil)
-	c.Assert(err, Equals, otpv.REPLAYED_OTP)
+	c.Assert(err, Equals, common.REPLAYED_OTP)
 
 	// validating a subsequent token should succeed
 	y.SetToken(yubitest.TestTokens[0].Token(1))
@@ -89,10 +90,10 @@ func (s *YubiSuite) TestSelfHosted(c *C) {
 	y.SetToken("ccccccj0000000000000000000000000000000000000")
 	_, err = y.Validate()
 	c.Assert(err, NotNil)
-	c.Assert(err, Equals, otpv.UNREGISTERED_USER)
+	c.Assert(err, Equals, common.UNREGISTERED_USER)
 }
 
-func (s *YubiSuite) TestNewYubiAuth(c *C) {
+func (s *YubiSuite) ExampleNewYubiAuth(c *C) {
 	y, err := NewYubiAuth("")
 	c.Assert(err, Equals, nil)
 

@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/dsggregory/yubiv/pkg/model"
+	"github.com/dsggregory/yubiv/pkg/selfhosted/model"
 	"gopkg.in/yaml.v2"
 
 	log "github.com/sirupsen/logrus"

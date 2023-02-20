@@ -1,14 +1,15 @@
-package yubikey
+package selfhosted
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
-	yubidb "github.com/dsggregory/yubiv/pkg/yubikey/database"
+	"github.com/dsggregory/yubiv/pkg/common"
 
-	"github.com/dsggregory/yubiv/pkg/model"
-	otpv "github.com/dsggregory/yubiv/pkg/yubikey/otpvalidation"
+	yubidb "github.com/dsggregory/yubiv/pkg/selfhosted/database"
 
+	"github.com/dsggregory/yubiv/pkg/selfhosted/model"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,6 +20,10 @@ type YubiAuth struct {
 	nResets int
 }
 
+func (y *YubiAuth) GetDB() yubidb.Databaser {
+	return y.db
+}
+
 func (y *YubiAuth) Token() string {
 	return y.token.String()
 }
@@ -27,32 +32,35 @@ func (y *YubiAuth) Bytes() []byte {
 	return y.token.Bytes()
 }
 
-// The public part of the token
+// Public the public part of the token
 func (y *YubiAuth) Public() string {
-	if y.token.Len() >= otpv.PubLen {
-		return y.token.String()[:otpv.PubLen]
+	if y.token.Len() >= PubLen {
+		return y.token.String()[:PubLen]
 	}
 	return y.token.String()
 }
 
+// Done finished reading the token?
 func (y *YubiAuth) Done() bool {
 	return y.done
 }
 
+// Reset make ready to read next token
 func (y *YubiAuth) Reset() {
 	y.nResets++
 	y.done = false
 	y.token.Truncate(0)
 }
 
+// GetResetCount returns the number of times Reset() has been called
 func (y *YubiAuth) GetResetCount() int {
 	return y.nResets
 }
 
-// Validation or other error is retryable
-func (y YubiAuth) RetryableError(err error) bool {
+// RetryableError validation or other error is retryable?
+func (y *YubiAuth) RetryableError(err error) bool {
 	switch err {
-	case otpv.BAD_OTP, otpv.UNREGISTERED_USER, otpv.EMPTY_YUBI_TOKEN, otpv.NO_SUCH_CLIENT:
+	case common.BAD_OTP, common.UNREGISTERED_USER, common.EMPTY_YUBI_TOKEN, common.NO_SUCH_CLIENT:
 		return true
 	default:
 		return false
@@ -89,29 +97,31 @@ func (y *YubiAuth) SetToken(token string) {
 
 // VerifyToken is not normally called. Use Validate() instead. This simply verifies the OTP but does not
 // determine if the token is registered, nor does it update token session counters in the DB.
-func (y *YubiAuth) VerifyToken(user model.YubiUser, token string) (*otpv.Token, error) {
-	var tokRslt *otpv.Token
+func (y *YubiAuth) VerifyToken(user model.YubiUser, token string) (*Token, error) {
+	var tokRslt *Token
 	if user.Secret != "" {
 		// self-hosted verification
-		_, otp, err := otpv.ParseToken(token)
+		_, otp, err := ParseToken(token)
 		if err != nil {
 			return nil, err
 		}
-		tokRslt, err = otpv.ShvValidateOTP(user, otp)
+		tokRslt, err = ShvValidateOTP(user, otp)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		// Using Yubico servers for token validation
-		log.WithField("user", user.Email).Debug("using Yubico servers for OTP validation")
-		resp, err := otpv.YubicoVerifyDefault(token)
-		if err != nil {
-			return nil, err
-		}
-		tokRslt = &otpv.Token{
-			Ctr: uint16(resp.SessionCounter),
-			Use: uint8(resp.SessionUse),
-		}
+		/***
+		} else {
+			// Using Yubico servers for token validation
+			log.WithField("user", user.Email).Debug("using Yubico servers for OTP validation")
+			resp, err := otpv.VerifyOTP(token)
+			if err != nil {
+				return nil, err
+			}
+			tokRslt = &Token{
+				Ctr: uint16(resp.SessionCounter),
+				Use: uint8(resp.SessionUse),
+			}
+		*/
 	}
 
 	return tokRslt, nil
@@ -126,7 +136,7 @@ func (y *YubiAuth) VerifyToken(user model.YubiUser, token string) (*otpv.Token, 
 func (y *YubiAuth) Validate() (*model.YubiUser, error) {
 	log.Debug("validating yubi token against database")
 	if y.token.Len() == 0 {
-		return nil, otpv.BAD_OTP
+		return nil, common.BAD_OTP
 	}
 
 	var user *model.YubiUser
@@ -134,11 +144,11 @@ func (y *YubiAuth) Validate() (*model.YubiUser, error) {
 		// Find the user corresponding to the public key of the token in the database
 		u, err := y.db.Get(y.Public())
 		if err != nil {
-			return nil, otpv.UNREGISTERED_USER
+			return nil, fmt.Errorf("%w: %s", err, common.UNREGISTERED_USER.String())
 		}
 		user = u
 		if user != nil && !user.IsEnabled {
-			return user, otpv.UNREGISTERED_USER
+			return user, common.UNREGISTERED_USER
 		}
 
 		tokRslt, err := y.VerifyToken(*user, y.token.String())
@@ -173,12 +183,6 @@ func NewYubiAuth(dsn string) (*YubiAuth, error) {
 			return nil, err
 		}
 		db = d
-	} else {
-		// use Yubico cloud validation service if the API environment is configured
-		_, _, err := otpv.YubicoAPIEnvironment()
-		if err != nil {
-			return nil, err
-		}
 	}
 	return &YubiAuth{db: db}, nil
 }

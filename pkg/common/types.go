@@ -1,4 +1,4 @@
-package otpvalidation
+package common
 
 type Status int
 
@@ -53,7 +53,7 @@ func (s Status) String() string {
 }
 
 // nolint:deadcode
-func statusFromString(status string) Status {
+func StatusFromString(status string) Status {
 	for i, s := range statusStrings {
 		if status == s {
 			return Status(i)

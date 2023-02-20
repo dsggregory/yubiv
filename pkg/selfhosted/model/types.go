@@ -10,10 +10,7 @@ const (
 	ColumnKeyEnv = "DB_COL_KEY"
 )
 
-// ColumnSecret a type for a gorm model column whose value is encrypted before persisting to
-// the database and is unencrypted in the struct.
-type ColumnSecret string
-
+// YubiUser the database model to store a Yubi device
 type YubiUser struct {
 	ID        uint      `json:"-" gorm:"primary_key"`
 	CreatedAt time.Time `json:"created_at,omitempty"`

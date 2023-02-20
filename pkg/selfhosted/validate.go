@@ -1,4 +1,4 @@
-package otpvalidation
+package selfhosted
 
 /*** Verify a Yubikey OTP. This is the self-hosted version that DOES NOT use
 Yubico servers for validation. See README.md for more detail.
@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dsggregory/yubiv/pkg/model"
+	"github.com/dsggregory/yubiv/pkg/common"
+
+	"github.com/dsggregory/yubiv/pkg/selfhosted/model"
 	_ "github.com/jinzhu/gorm/dialects/mysql" // need this to load the DB engine
 )
 
@@ -50,7 +52,7 @@ func ParseToken(token string) ([]byte, []byte, error) {
 	token = strings.TrimSpace(token)
 	tokenLen := len(token)
 	if tokenLen <= OtpSize {
-		return nil, nil, BAD_OTP
+		return nil, nil, common.BAD_OTP
 	}
 
 	// where the otp starts in the token
@@ -58,7 +60,7 @@ func ParseToken(token string) ([]byte, []byte, error) {
 
 	// extract public key
 	if lng := len(token[:canary]); lng < 1 || lng > PubSize {
-		return nil, nil, BAD_OTP
+		return nil, nil, common.BAD_OTP
 	}
 	pub := make([]byte, len(token[:canary]))
 	copy(pub, token[:canary])
@@ -114,7 +116,7 @@ func extractOtp(buf []byte) (*Token, error) {
 	var token Token
 
 	if len(buf) != 16 || crc16(buf) != CrcOkResidue {
-		return nil, CRC_FAILURE
+		return nil, common.CRC_FAILURE
 	}
 
 	copy(token.Uid[:], buf[:6])
@@ -155,7 +157,7 @@ func ShvValidateOTP(user model.YubiUser, otp []byte) (*Token, error) {
 	// verify the AES128 key
 	priv, err := hex.DecodeString(strings.TrimSpace(string(user.Secret)))
 	if err != nil {
-		return nil, BACKEND_ERROR
+		return nil, common.BACKEND_ERROR
 	}
 
 	var aesData [AesSize]byte
@@ -182,9 +184,9 @@ func ShvValidateOTP(user model.YubiUser, otp []byte) (*Token, error) {
 
 	// check token validity
 	if token.Ctr < uint16(user.Counter) {
-		return nil, REPLAYED_OTP
+		return nil, common.REPLAYED_OTP
 	} else if token.Ctr == uint16(user.Counter) && token.Use <= uint8(user.Session) {
-		return nil, REPLAYED_OTP
+		return nil, common.REPLAYED_OTP
 	}
 
 	return token, nil

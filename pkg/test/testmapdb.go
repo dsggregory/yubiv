@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dsggregory/yubiv/pkg/model"
-	yubidb "github.com/dsggregory/yubiv/pkg/yubikey/database"
+	yubidb "github.com/dsggregory/yubiv/pkg/selfhosted/database"
+	"github.com/dsggregory/yubiv/pkg/selfhosted/model"
 )
 
 // TestToken is a single user with a few OTPs

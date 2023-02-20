@@ -3,14 +3,14 @@ package database
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"time"
 
-	//"github.com/dsggregory/ws-terminal/pkg/yubikey/database/tenants"
-
-	"github.com/dsggregory/yubiv/pkg/model"
+	"github.com/dsggregory/yubiv/pkg/selfhosted/model"
 	"github.com/jinzhu/gorm"
 	log "github.com/sirupsen/logrus"
+
+	_ "gorm.io/driver/mysql"
+	_ "gorm.io/driver/sqlite"
 )
 
 // Db implements Databaser interface
@@ -32,7 +32,7 @@ func (db *Db) Add(req model.YubiUser) error {
 func (db *Db) Get(ykid string) (*model.YubiUser, error) {
 	user := &model.YubiUser{Public: ykid}
 	if err := db.db.Where(user).First(user).Error; err != nil {
-		log.WithField("pubkey", ykid).WithError(err).Error("failed looking up YubiUser")
+		//log.WithField("pubkey", ykid).WithError(err).Error("failed looking up YubiUser")
 		return nil, fmt.Errorf("unregistered yubikey")
 	}
 
@@ -76,32 +76,31 @@ func (db *Db) UpdateUser(user model.YubiUser) error {
 	return nil
 }
 
+func (db *Db) SetSecretColumnKeyFunc(func() string) {
+
+}
+
 // NewDb creates a new interface to the database identified by `dsn`. Supports the following types to select the proper dialect:
 //
 //   * sqlite -> "file:/home/user/data.db"
 //   * mysql -> "mysql://user@pass/dbname?charset=utf8&parseTime=True&loc=Local"
 func NewDb(dsn string) (*Db, error) {
-	dbURI := "root@/clusters?charset=utf8&parseTime=True&loc=Local"
-	if mu := os.Getenv("MYSQL_URI"); mu != "" {
-		dbURI = mu
-	}
-
 	var err error
 	var db *gorm.DB
-	u, err := url.Parse(dbURI)
+	u, err := url.Parse(dsn)
 	if err != nil {
 		return nil, err
 	}
 	switch u.Scheme {
 	case "file": // sqlite -> file:/home/user/data.db
-		db, err = gorm.Open("sqlite3", dbURI[7:])
+		db, err = gorm.Open("sqlite3", dsn[7:])
 	case "mysql": // mysql://user@pass/dbname?charset=utf8&parseTime=True&loc=Local
-		db, err = gorm.Open("mysql", dbURI[8:])
+		db, err = gorm.Open("mysql", dsn[8:])
 	default: // user@pass/dbname?charset=utf8&parseTime=True&loc=Local
-		db, err = gorm.Open("mysql", dbURI)
+		db, err = gorm.Open("mysql", dsn)
 	}
 	if err != nil {
-		err = fmt.Errorf("%s - %s", err.Error(), dbURI)
+		err = fmt.Errorf("%s - %s", err.Error(), dsn)
 		return nil, err
 	}
 

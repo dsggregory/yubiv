@@ -1,9 +1,3 @@
-/***
-Provides a column type to database/sql/driver whose value is encrypted when persisting to the database.
-The encryption is AES256 with a nonce.
-The key used for encryption and decryption is supplied by the calling function which could originate
-from a k8s secret, for instance.
-*/
 package model
 
 import (
@@ -17,7 +11,16 @@ import (
 	"io"
 )
 
-// DefaultColumnSecretKey the shared private key for enc/dec
+// ColumnSecret a type for a gorm model column whose value is encrypted before persisting to
+// the database and is unencrypted in the struct.
+//
+// Provides a column type to database/sql/driver whose value is encrypted when persisting to the database.
+// The encryption is AES256 with a nonce.
+// The variable DefaultColumnSecretKey is used for encryption and decryption and must be supplied by the calling function which could originate
+// from a k8s secret, for instance.
+type ColumnSecret string
+
+// DefaultColumnSecretKey the shared private key for enc/dec from vault, k8s secret, etc.
 var DefaultColumnSecretKey *string
 
 // when the DB driver writes to DB
@@ -35,8 +38,16 @@ func (sec *ColumnSecret) Scan(src interface{}) error {
 	if DefaultColumnSecretKey == nil {
 		return fmt.Errorf("DefaultColumnSecretKey not initialized")
 	}
-	// dec the src string in b64
-	sb, _ := src.([]byte)
+	// dec the src string
+	var sb []byte
+	switch v := src.(type) {
+	case []byte:
+		sb = v
+	case string:
+		sb = []byte(v)
+	default:
+		return fmt.Errorf("ColumnSecret src unsupported type %T", v)
+	}
 	dec, err := Decrypt(string(sb), *DefaultColumnSecretKey)
 	*sec = ColumnSecret(dec)
 	return err

@@ -1,6 +1,6 @@
 package database
 
-import "github.com/dsggregory/yubiv/pkg/model"
+import "github.com/dsggregory/yubiv/pkg/selfhosted/model"
 
 // Databaser interface to the underlying database that manages known Yubi keys
 type Databaser interface {
@@ -9,6 +9,7 @@ type Databaser interface {
 	GetAll() ([]*model.YubiUser, error)
 	UpdateCounts(user model.YubiUser) error
 	UpdateUser(user model.YubiUser) error
+	SetSecretColumnKeyFunc(func() string)
 }
 
 type RegistrationError struct {

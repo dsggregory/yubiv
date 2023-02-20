@@ -1,4 +1,4 @@
-package otpvalidation
+package yubico
 
 /*** Verify a Yubikey OTP using Yubico servers. This works out-of-the-box with new Yubikeys using factory-configured slot #1.
 See https://developers.yubico.com/yubikey-val/Validation_Protocol_V2.0.html
@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dsggregory/yubiv/pkg/common"
 )
 
 // YubiCloudServers Yubico servers that know about your factory-configured yubikey slot #1.
@@ -128,7 +130,7 @@ type VerifyResponse struct {
 	// T timestamp in UTC
 	T time.Time
 	// Status is the status of the operation
-	Status Status
+	Status common.Status
 	// Timestamp YubiKey internal timestamp value when key was pressed
 	Timestamp uint
 	// SessionCounter YubiKey internal usage counter when key was pressed
@@ -137,37 +139,6 @@ type VerifyResponse struct {
 	SessionUse uint
 	// SL percentage of external validation server that replied successfully (0 to 100)
 	SL int
-}
-
-// NewYubiClient creates a new Yubi Cloud client to verify future tokens.
-//
-// You must use your own client id and apiKey to use their servers. Refer to YubicoAPIEnvironment().
-//
-// See [Obtain a Yubico API Key]: https://support.yubico.com/hc/en-us/articles/360013717560-Obtaining-an-API-Key-for-YubiKey-Development
-func NewYubiClient(id string, apikey string) (*YubiClient, error) {
-	return NewYubiClientWithServers(id, apikey, YubiCloudServers)
-}
-
-// NewYubiClientWithServers alternative to NewYubiClient that specifies the Yubico validation servers to use
-func NewYubiClientWithServers(id string, apikey string, servers []string) (*YubiClient, error) {
-	if id == "" || apikey == "" {
-		return nil, fmt.Errorf("yubico client requires API ID and Secret")
-	}
-
-	y := &YubiClient{id: id, servers: servers}
-
-	key, err := base64.StdEncoding.DecodeString(apikey)
-	if err != nil {
-		return nil, err
-	}
-	y.apiKey = key
-
-	return y, nil
-}
-
-// NewTestYubiClient a test suite function
-func NewTestYubiClient(server string) (*YubiClient, error) {
-	return &YubiClient{id: "test", apiKey: []byte(""), servers: []string{server}}, nil
 }
 
 func parseTimestamp(t string) (time.Time, error) {
@@ -219,7 +190,7 @@ func (y *YubiClient) responseFromBody(body []byte) (*VerifyResponse, error) {
 		return nil, fmt.Errorf("error parsing response timestamp: %s", err)
 	}
 
-	r.Status = statusFromString(m["status"])
+	r.Status = common.StatusFromString(m["status"])
 	if sl, ok := m["sl"]; ok {
 		r.SL, err = strconv.Atoi(sl)
 		if err != nil {
@@ -255,7 +226,7 @@ func (y *YubiClient) responseFromBody(body []byte) (*VerifyResponse, error) {
 	return r, nil
 }
 
-// Verify generic request. See YubicoVerifyDefault() for convenience.
+// Verify generic request. See VerifyDefault() for convenience.
 func (y *YubiClient) Verify(req *VerifyRequest) (*VerifyResponse, error) {
 
 	// random server
@@ -308,8 +279,8 @@ func (y *YubiClient) Verify(req *VerifyRequest) (*VerifyResponse, error) {
 	return response, nil
 }
 
-// YubicoAPIEnvironment reads well-known environment variables to get your Yubi client API creds
-func YubicoAPIEnvironment() (clientID string, secretKey string, err error) {
+// APIEnvironment reads well-known environment variables to get your Yubi client API creds
+func APIEnvironment() (clientID string, secretKey string, err error) {
 	clientID = os.Getenv("YUBICO_API_CLIENT_ID")
 	secretKey = os.Getenv("YUBICO_API_SECRET_KEY")
 	if clientID == "" || secretKey == "" {
@@ -318,8 +289,8 @@ func YubicoAPIEnvironment() (clientID string, secretKey string, err error) {
 	return
 }
 
-// VerifyDefault (with client) formats and makes a request. This is a convenience using default values.
-func (y *YubiClient) VerifyDefault(otp string) (*VerifyResponse, error) {
+// VerifyOTP formats and makes a request to validate a OTP from Yubico API. If it could not validate for any reason, an error is returned.
+func (y *YubiClient) VerifyOTP(otp string) (*VerifyResponse, error) {
 	nb := make([]byte, 32)
 	if _, err := io.ReadFull(crand.Reader, nb); err != nil {
 		return nil, err
@@ -337,22 +308,105 @@ func (y *YubiClient) VerifyDefault(otp string) (*VerifyResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.Status != OK {
+	if resp.Status != common.OK {
 		return resp, fmt.Errorf(resp.Status.String())
 	}
 
 	return resp, nil
 }
 
-// YubicoVerifyDefault formats and makes a request. This is a convenience using default values.
-func YubicoVerifyDefault(otp string) (*VerifyResponse, error) {
-	apiID, apiKey, err := YubicoAPIEnvironment()
+// VerifyDefault helper for a one-shot OTP validation using default values.
+//
+// You may prefer to use NewYubiClient() if you will be validating more than one OTP.
+func VerifyDefault(otp string) (*VerifyResponse, error) {
+	c, err := NewYubiClient(WithAPIEnvironment())
 	if err != nil {
 		return nil, err
 	}
-	c, err := NewYubiClient(apiID, apiKey)
+	return c.VerifyOTP(otp)
+}
+
+// WithAPIServers an optional arg to NewYubiClient that specifies Yubico API servers. Default is to use the manifest definitions.
+func WithAPIServers(servers []string) func(y *YubiClient) {
+	return func(y *YubiClient) {
+		y.servers = servers
+	}
+}
+
+func apikeyDecode(apikey string) ([]byte, error) {
+	key, err := base64.StdEncoding.DecodeString(apikey)
 	if err != nil {
 		return nil, err
 	}
-	return c.VerifyDefault(otp)
+	return key, nil
+}
+
+// WithAPIEnvironment an optional arg to NewYubiClient that reads Yubico API creds from environment variables YUBICO_API_CLIENT_ID and YUBICO_API_SECRET_KEY.
+func WithAPIEnvironment() func(y *YubiClient) {
+	return func(y *YubiClient) {
+		id, apikey, err := APIEnvironment()
+		if err != nil {
+			return // NewYubiClient will return an error
+		}
+		y.id = id
+		y.apiKey, err = apikeyDecode(apikey)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+// WithAPICreds an optional arg to NewYubiClient that specifies the Yubico API creds. The apikeyB64 must be base64 encoded.
+func WithAPICreds(id string, apikeyB64 string) func(y *YubiClient) {
+	return func(y *YubiClient) {
+		y.id = id
+		key, err := apikeyDecode(apikeyB64)
+		if err != nil {
+			panic(err)
+		}
+		y.apiKey = key
+	}
+}
+
+// NewYubiClient creates a new Yubi Cloud client to verify future tokens.
+//
+// Options may be one of the With*() functions. Ex. WithAPIEnvironment().
+//
+// You must use your own client id and apiKey to use their servers. Refer to APIEnvironment().
+//
+// See [Obtain a Yubico API Key]: https://support.yubico.com/hc/en-us/articles/360013717560-Obtaining-an-API-Key-for-YubiKey-Development
+func NewYubiClient(options ...func(client *YubiClient)) (ry *YubiClient, rerr error) {
+	y := &YubiClient{}
+
+	// catch panic() from optional arg funcs
+	defer func() {
+		if err := recover(); err != nil {
+			rerr = err.(error)
+		}
+	}()
+
+	for _, o := range options {
+		o(y)
+	}
+	if y.servers == nil {
+		y.servers = YubiCloudServers
+	}
+	// use environment if WithAPICreds() option was not used
+	if y.apiKey == nil {
+		apiID, apiKey, err := APIEnvironment()
+		if err != nil {
+			return nil, err
+		}
+		y.id = apiID
+		y.apiKey, err = apikeyDecode(apiKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return y, nil
+}
+
+// NewTestYubiClient a test suite function
+func NewTestYubiClient(server string) (*YubiClient, error) {
+	return &YubiClient{id: "test", apiKey: []byte(""), servers: []string{server}}, nil
 }
