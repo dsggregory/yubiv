@@ -9,7 +9,7 @@ type Databaser interface {
 	GetAll() ([]*model.YubiUser, error)
 	UpdateCounts(user model.YubiUser) error
 	UpdateUser(user model.YubiUser) error
-	SetSecretColumnKeyFunc(func() string)
+	SetSecretColumnKeyFunc(model.SecretColumnKeyT)
 }
 
 type RegistrationError struct {

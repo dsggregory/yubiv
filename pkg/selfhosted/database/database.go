@@ -76,8 +76,9 @@ func (db *Db) UpdateUser(user model.YubiUser) error {
 	return nil
 }
 
-func (db *Db) SetSecretColumnKeyFunc(func() string) {
-
+// SetSecretColumnKeyFunc specifies the func to call to acquire the application's secret key for DB column encryption
+func (db *Db) SetSecretColumnKeyFunc(kf model.SecretColumnKeyT) {
+	model.SecretColumnKeyFunc = kf
 }
 
 // NewDb creates a new interface to the database identified by `dsn`. Supports the following types to select the proper dialect:

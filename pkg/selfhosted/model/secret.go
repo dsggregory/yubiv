@@ -20,23 +20,26 @@ import (
 // from a k8s secret, for instance.
 type ColumnSecret string
 
-// DefaultColumnSecretKey the shared private key for enc/dec from vault, k8s secret, etc.
-var DefaultColumnSecretKey *string
+// SecretColumnKeyT the type of function that acquires the secret column key
+type SecretColumnKeyT func() string
+
+// SecretColumnKeyFunc callers using the functionality will specify this as a function to be called to acquire the secrey key to encrypt/decrypt the column.
+var SecretColumnKeyFunc SecretColumnKeyT
 
 // when the DB driver writes to DB
 func (sec ColumnSecret) Value() (driver.Value, error) {
-	if DefaultColumnSecretKey == nil {
-		return nil, fmt.Errorf("DefaultColumnSecretKey not initialized")
+	if SecretColumnKeyFunc == nil {
+		return nil, fmt.Errorf("SecretColumnKeyFunc not initialized")
 	}
 	// enc the string in b64
-	enc, err := Encrypt([]byte(sec), *DefaultColumnSecretKey)
+	enc, err := Encrypt([]byte(sec), SecretColumnKeyFunc())
 	return driver.Value(enc), err
 }
 
 // when the DB driver reads from the DB
 func (sec *ColumnSecret) Scan(src interface{}) error {
-	if DefaultColumnSecretKey == nil {
-		return fmt.Errorf("DefaultColumnSecretKey not initialized")
+	if SecretColumnKeyFunc == nil {
+		return fmt.Errorf("SecretColumnKeyFunc not initialized")
 	}
 	// dec the src string
 	var sb []byte
@@ -48,7 +51,7 @@ func (sec *ColumnSecret) Scan(src interface{}) error {
 	default:
 		return fmt.Errorf("ColumnSecret src unsupported type %T", v)
 	}
-	dec, err := Decrypt(string(sb), *DefaultColumnSecretKey)
+	dec, err := Decrypt(string(sb), SecretColumnKeyFunc())
 	*sec = ColumnSecret(dec)
 	return err
 }

@@ -47,7 +47,13 @@ func validateOTP(otp string) bool {
 ```
 
 ### Self-Hosted Validation
-Validating One-Time-Passwords (OTP) requires knowledge of a map of Yubikey ID to Secret AES Key. This solution is more involved than using Yubico because you will have to manage a Yubi device users database yourself.
+Validating One-Time-Passwords (OTP) requires knowledge of a map of Yubikey ID to Secret AES Key. This solution is more involved than using Yubico because you will have to manage a Yubi device users database yourself. This includes:
+* providing a MySQL or sqlite3 database URN
+* Provide a protected private key to secure data at rest in the DB
+* Teach your users how to use the yubikey with your service - considering using both Yubikey clots
+* Provide a means to provision new user Yubikeys into the database
+
+An [example implementation](./example/self-hosted/validateSelfHosted.go) is provided to get you started after you have read the remainder of this section.
 
 #### Yubi Slot Strategy
 In order to allow Yubico validation, plus self-hosted validation, the device must be configured to use both slots.
@@ -63,10 +69,6 @@ Steps to perform this after downloading and running the Yubikey Manager are as f
 * Complete the wizard
 
 You will then use the copied values when registering your self-hosted Yubikey with this package (__TODO__).
-
-#### Create a database user
-
-#### Validate a YubiKey Token
 
 ## References
 * https://duo.com/docs/yubikey

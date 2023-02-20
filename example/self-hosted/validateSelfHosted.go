@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// OpStr options for the app
 type OpStr struct {
 	dbPath     string
 	addUser    bool
@@ -25,6 +26,7 @@ type OpStr struct {
 	y *selfhosted.YubiAuth
 }
 
+// gets reads a string from stdin
 func gets(prompt string) (string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print(prompt)
@@ -36,6 +38,7 @@ func gets(prompt string) (string, error) {
 	return resp, nil
 }
 
+// printAllUsers prints all user records from the database
 func (o *OpStr) printAllUsers() {
 	users, err := o.y.GetDB().GetAll()
 	if err != nil {
@@ -48,6 +51,7 @@ func (o *OpStr) printAllUsers() {
 	fmt.Println(string(js))
 }
 
+// addDeviceUser add a user and their Yubikey to the database.
 func (o *OpStr) addDeviceUser() {
 	otp, err := gets("Press Yubi device (from device to add): ")
 	if err != nil {
@@ -85,6 +89,7 @@ func (o *OpStr) addDeviceUser() {
 	o.printAllUsers()
 }
 
+// validate a Yubi key press (OTP) against known devices in the DB
 func (o *OpStr) validate() {
 	otp, err := gets("Enter Yubi token to verify: ")
 	o.y.SetToken(otp)
@@ -109,12 +114,17 @@ func main() {
 	flag.BoolVar(&opts.printUsers, "p", false, "Print all users")
 	flag.Parse()
 
-	dbEncKey := "foobar"
-	model.DefaultColumnSecretKey = &dbEncKey // TODO better incorporation into an app
+	// This will create the tables if necessary and return an object for you to use to manage self-hosted users and verify OTPs
 	y, err := selfhosted.NewYubiAuth(opts.dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Specify the secret DB column encryption key for this application.
+	// WARNING: Real world production code should get this value from vault, k8s secret, et.al.
+	dbEncKey := "foobar"
+	y.GetDB().SetSecretColumnKeyFunc(func() string {
+		return dbEncKey
+	})
 	opts.y = y
 
 	if opts.addUser {

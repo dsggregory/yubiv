@@ -90,7 +90,7 @@ func (s *YubiSuite) TestSelfHosted(c *C) {
 	y.SetToken("ccccccj0000000000000000000000000000000000000")
 	_, err = y.Validate()
 	c.Assert(err, NotNil)
-	c.Assert(err, Equals, common.UNREGISTERED_USER)
+	c.Assert(strings.Contains(err.Error(), common.UNREGISTERED_USER.String()), Equals, true)
 }
 
 func (s *YubiSuite) ExampleNewYubiAuth(c *C) {

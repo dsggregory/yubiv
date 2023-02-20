@@ -67,6 +67,11 @@ func (db *MapDb) UpdateUser(rec model.YubiUser) error {
 	return nil
 }
 
+// SetSecretColumnKeyFunc specifies the func to call to acquire the application's secret key for DB column encryption
+func (db *MapDb) SetSecretColumnKeyFunc(kf model.SecretColumnKeyT) {
+	model.SecretColumnKeyFunc = kf
+}
+
 func NewMapDb() *MapDb {
 	db := MapDb{
 		recs: make(map[string]*model.YubiUser),

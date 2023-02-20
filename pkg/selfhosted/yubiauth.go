@@ -144,7 +144,7 @@ func (y *YubiAuth) Validate() (*model.YubiUser, error) {
 		// Find the user corresponding to the public key of the token in the database
 		u, err := y.db.Get(y.Public())
 		if err != nil {
-			return nil, fmt.Errorf("%w: %s", err, common.UNREGISTERED_USER.String())
+			return nil, fmt.Errorf("%w; %s", err, common.UNREGISTERED_USER)
 		}
 		user = u
 		if user != nil && !user.IsEnabled {
