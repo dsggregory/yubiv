@@ -64,7 +64,7 @@ func (s *yubicoSuite) TestYubioServerVerify(c *C) {
 		otp := r.URL.Query().Get("otp")
 		rnonce := r.URL.Query().Get("nonce")
 		status := common.OK.String()
-		user, err := s.mapDB.Get(otp[:selfhosted.PubLen])
+		user, err := s.mapDB.Get(otp[:common.TokenIDLen])
 		if err != nil {
 			status = common.NO_SUCH_CLIENT.String()
 		} else {
@@ -74,7 +74,7 @@ func (s *yubicoSuite) TestYubioServerVerify(c *C) {
 			}
 		}
 		tms := time.Now().Format("2006-01-02T15:04:05")
-		fmt.Fprintf(w, `
+		_, _ = fmt.Fprintf(w, `
 status=%s
 otp=%s
 nonce=%s
@@ -92,8 +92,8 @@ t=%sZ0000
 	c.Assert(err, IsNil)
 	c.Assert(res, NotNil)
 
-	// should fail unable to lookup the yubikey ID
-	res, err = yc.VerifyOTP("unknown ID" + yubitest.TestTokens[0].Token(0))
+	// should fail unable to look up the yubikey ID
+	res, err = yc.VerifyOTP("unknown ID+2" + yubitest.TestTokens[0].Token(0)[common.TokenIDLen:])
 	c.Assert(err, NotNil)
 	c.Assert(err.Error(), Equals, common.NO_SUCH_CLIENT.String())
 }

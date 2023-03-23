@@ -2,6 +2,15 @@ package common
 
 type Status int
 
+const (
+	// TokenLen the full OTP from a Yubikey press
+	TokenLen = TokenIDLen + TokenOTPLen
+	// TokenIDLen  is the length of the Yubikey ID from a OTP token
+	TokenIDLen = 12
+	// TokenOTPLen is the length of the OTP passkey data
+	TokenOTPLen = 32
+)
+
 // nolint
 const (
 	UNKNOWN_STATUS        Status = iota

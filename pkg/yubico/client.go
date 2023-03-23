@@ -240,6 +240,9 @@ func (y *YubiClient) Verify(req *VerifyRequest) (*VerifyResponse, error) {
 	}
 
 	req.OTP = strings.Trim(req.OTP, "\n")
+	if len(req.OTP) != common.TokenLen {
+		return nil, common.BAD_OTP
+	}
 
 	values := req.toValues()
 

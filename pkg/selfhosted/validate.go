@@ -19,11 +19,10 @@ import (
 )
 
 const (
-	UidSize      = 6  // nolint
-	PubLen       = 12 // of otp token
+	UidSize      = 6                 // nolint
+	PubLen       = common.TokenIDLen // of otp token
 	AesSize      = 16
-	OtpSize      = 32
-	PubSize      = 32
+	OtpSize      = common.TokenOTPLen
 	CrcOkResidue = 0xf0b8
 	ModHexMap    = "cbdefghijklnrtuv"
 )
@@ -59,7 +58,7 @@ func ParseToken(token string) ([]byte, []byte, error) {
 	canary := tokenLen - OtpSize
 
 	// extract public key
-	if lng := len(token[:canary]); lng < 1 || lng > PubSize {
+	if lng := len(token[:canary]); lng < 1 || lng > OtpSize {
 		return nil, nil, common.BAD_OTP
 	}
 	pub := make([]byte, len(token[:canary]))
