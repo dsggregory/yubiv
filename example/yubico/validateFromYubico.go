@@ -24,11 +24,14 @@ func gets(prompt string) (string, error) {
 }
 
 func main() {
-	// This example reads the API creds from stdin.
-	// You could instead set them in environment variables and use WithAPIEnvironment() when calling NewYubiClient().
-	id, _ := gets("Enter Yubico API ID: ")
-	apikeyB64, _ := gets("Enter Yubico API Key: ") // Yubico presents them as base64-encoded
-	y, err := yubico.NewYubiClient(yubico.WithAPICreds(id, apikeyB64))
+	id, key, err := yubico.APIEnvironment()
+	if err != nil {
+		// This example reads the API creds from stdin.
+		// You could instead set them in environment variables and use WithAPIEnvironment() when calling NewYubiClient().
+		id, _ = gets("Enter Yubico API ID: ")
+		key, _ = gets("Enter Yubico API Key: ") // Yubico presents them as base64-encoded
+	}
+	y, err := yubico.NewYubiClient(yubico.WithAPICreds(id, key))
 	if err != nil {
 		log.Fatal(err)
 	}

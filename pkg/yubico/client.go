@@ -41,7 +41,7 @@ var YubiCloudServers = []string{
 type YubiClient struct {
 	// id The Yubico Client ID associated with the apiKey
 	id string
-	// apiKey The byte array of a Yubico API key - not encoded
+	// apiKey The byte array of a non-encoded Yubico API key
 	apiKey []byte
 	// servers Array of Yubico servers used in OTP validation
 	servers []string
@@ -282,10 +282,14 @@ func (y *YubiClient) Verify(req *VerifyRequest) (*VerifyResponse, error) {
 	return response, nil
 }
 
-// APIEnvironment reads well-known environment variables to get your Yubi client API creds
+// APIEnvironment reads well-known environment variables (YUBICO_API_CLIENT_ID, YUBICO_API_SECRET_KEY) to get your Yubi client API creds. Note that YUBICO_API_SECRET_KEY must be base64-encoded.
 func APIEnvironment() (clientID string, secretKey string, err error) {
 	clientID = os.Getenv("YUBICO_API_CLIENT_ID")
 	secretKey = os.Getenv("YUBICO_API_SECRET_KEY")
+	// expects Base64-encoding of secretKey
+	if _, err = apikeyDecode(secretKey); err != nil {
+		return
+	}
 	if clientID == "" || secretKey == "" {
 		err = errors.New("requires YUBICO_API_CLIENT_ID and YUBICO_API_SECRET_KEY environment variables")
 	}
@@ -359,7 +363,7 @@ func WithAPIEnvironment() func(y *YubiClient) {
 	}
 }
 
-// WithAPICreds an optional arg to NewYubiClient that specifies the Yubico API creds. The apikeyB64 must be base64 encoded as it may be expected to come from an HTTP request param.
+// WithAPICreds an optional arg to NewYubiClient that specifies the Yubico API creds. The apikeyB64 must be base64 encoded as it is provided by the Yubico API Key Signup.
 func WithAPICreds(id string, apikeyB64 string) func(y *YubiClient) {
 	return func(y *YubiClient) {
 		y.id = id
