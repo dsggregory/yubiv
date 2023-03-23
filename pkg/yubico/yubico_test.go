@@ -1,6 +1,7 @@
 package yubico
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -35,20 +36,22 @@ func (s *yubicoSuite) TestNewYubiClient(c *C) {
 	_, err := NewYubiClient(WithAPIEnvironment())
 	c.Assert(err, NotNil)
 
+	apiKey := "bar"
+
 	// apikey is not base64
-	_, err = NewYubiClient(WithAPICreds("foo", "bar"))
+	_, err = NewYubiClient(WithAPICreds("foo", apiKey))
 	c.Assert(err, NotNil)
 
-	b := base64.StdEncoding.EncodeToString([]byte("bar"))
-	y, err := NewYubiClient(WithAPICreds("foo", b))
+	bApiKey := base64.StdEncoding.EncodeToString([]byte(apiKey))
+	y, err := NewYubiClient(WithAPICreds("foo", bApiKey))
 	c.Assert(err, IsNil)
 	c.Assert(y.id, Equals, "foo")
-	c.Assert(y.apiKey, Equals, b)
+	c.Assert(bytes.Equal(y.apiKey, []byte(apiKey)), Equals, true)
 
 	server := "test.domain.com"
 	y, err = NewYubiClient(
 		WithAPIServers([]string{server}),
-		WithAPICreds("foo", b),
+		WithAPICreds("foo", bApiKey),
 	)
 	c.Assert(err, IsNil)
 	c.Assert(len(y.servers), Equals, 1)

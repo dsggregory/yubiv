@@ -39,8 +39,11 @@ var YubiCloudServers = []string{
 
 // YubiClient Yubico API key info
 type YubiClient struct {
-	id      string
-	apiKey  []byte
+	// id The Yubico Client ID associated with the apiKey
+	id string
+	// apiKey The byte array of a Yubico API key - not encoded
+	apiKey []byte
+	// servers Array of Yubico servers used in OTP validation
 	servers []string
 }
 
@@ -173,7 +176,7 @@ func (y *YubiClient) responseFromBody(body []byte) (*VerifyResponse, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error parsing response: %s", err)
+		return nil, fmt.Errorf("%w; error parsing response", err)
 	}
 
 	if !isValidResponseHash(m, y.apiKey) {
@@ -187,14 +190,14 @@ func (y *YubiClient) responseFromBody(body []byte) (*VerifyResponse, error) {
 	r.H, _ /* err */ = base64.StdEncoding.DecodeString(m["h"]) // error ignored here because it validated in isValidResponseHash()
 	r.T, err = parseTimestamp(m["t"])
 	if err != nil {
-		return nil, fmt.Errorf("error parsing response timestamp: %s", err)
+		return nil, fmt.Errorf("%w; error parsing response timestamp", err)
 	}
 
 	r.Status = common.StatusFromString(m["status"])
 	if sl, ok := m["sl"]; ok {
 		r.SL, err = strconv.Atoi(sl)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing response `sl': %s", err)
+			return nil, fmt.Errorf("%w; error parsing response `sl`", err)
 		}
 	}
 
@@ -202,7 +205,7 @@ func (y *YubiClient) responseFromBody(body []byte) (*VerifyResponse, error) {
 	if s, ok := m["timestamp"]; ok {
 		sc, err := strconv.ParseUint(s, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing timestamp: %s", err)
+			return nil, fmt.Errorf("%w; error parsing timestamp", err)
 		}
 		r.Timestamp = uint(sc)
 	}
@@ -210,7 +213,7 @@ func (y *YubiClient) responseFromBody(body []byte) (*VerifyResponse, error) {
 	if s, ok := m["sessioncounter"]; ok {
 		sc, err := strconv.ParseUint(s, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing sessioncounter: %s", err)
+			return nil, fmt.Errorf("%w; error parsing sessioncounter", err)
 		}
 		r.SessionCounter = uint(sc)
 	}
@@ -218,7 +221,7 @@ func (y *YubiClient) responseFromBody(body []byte) (*VerifyResponse, error) {
 	if s, ok := m["sessionuse"]; ok {
 		sc, err := strconv.ParseUint(s, 10, 8)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing sessionuse: %s", err)
+			return nil, fmt.Errorf("%w; error parsing sessionuse", err)
 		}
 		r.SessionUse = uint(sc)
 	}
@@ -356,7 +359,7 @@ func WithAPIEnvironment() func(y *YubiClient) {
 	}
 }
 
-// WithAPICreds an optional arg to NewYubiClient that specifies the Yubico API creds. The apikeyB64 must be base64 encoded.
+// WithAPICreds an optional arg to NewYubiClient that specifies the Yubico API creds. The apikeyB64 must be base64 encoded as it may be expected to come from an HTTP request param.
 func WithAPICreds(id string, apikeyB64 string) func(y *YubiClient) {
 	return func(y *YubiClient) {
 		y.id = id
